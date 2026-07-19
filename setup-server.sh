@@ -39,6 +39,11 @@ apt install -y \
 echo "[4/9] Hardening SSH..."
 SSHD_CONFIG="/etc/ssh/sshd_config"
 #config ssh 
+if [ ! -f "$SSHD_CONFIG" ]; then
+  echo "Error: $SSHD_CONFIG not found."
+  echo "Is openssh-server installed?"
+  exit 1
+fi
 sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' "$SSHD_CONFIG"
 sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' "$SSHD_CONFIG"
 sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' "$SSHD_CONFIG"
