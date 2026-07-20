@@ -2,7 +2,7 @@
 set -e 
 
 #to run it  sudo bash setup.sh
-USERNAME="emy"
+USERNAME="mey"
 HOSTNAME="debian-prod"
 TIMEZONE="Africa/Algiers"
 
@@ -11,10 +11,6 @@ echo "Setting up the linux server"
 echo "======================================"
 
 echo "[1/9] Updating system..."
-#ssh into the server
-#ssh root@your_server_ip
-
-#updating it
 apt update
 apt full-upgrade -y
 apt autoremove -y
@@ -31,6 +27,7 @@ fi
 echo "[3/9] Installing packages..."
 apt install -y \
     sudo \
+    openssh-server \
     ufw \
     fail2ban \
     unattended-upgrades \
@@ -38,12 +35,12 @@ apt install -y \
 
 echo "[4/9] Hardening SSH..."
 SSHD_CONFIG="/etc/ssh/sshd_config"
-#config ssh 
 if [ ! -f "$SSHD_CONFIG" ]; then
   echo "Error: $SSHD_CONFIG not found."
   echo "Is openssh-server installed?"
   exit 1
 fi
+
 sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' "$SSHD_CONFIG"
 sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' "$SSHD_CONFIG"
 sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' "$SSHD_CONFIG"
@@ -56,34 +53,43 @@ systemctl restart ssh
 
 
 echo "[5/9] Configuring firewall..."
-#config the firewall
 ufw default deny incoming
 ufw default allow outgoing
 
 ufw allow OpenSSH
-
 ufw --force enable
 
 echo "[6/9] Configuring unattended upgrades..."
-#automate secu updates
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
-systemctl status unattended-upgrades
 
 echo "[7/9] Configuring Fail2Ban..."
-#install fail2ban
-if [ ! -f /etc/fail2ban/jail.local ]; then
-  cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-fi
+#basic config on local file
+cat >/etc/fail2ban/jail.local <<'EOF'
+[DEFAULT]
+# Ban an IP for 1 hour 
+bantime = 1h
+
+# Count failures within 10 minutes
+findtime = 10m
+
+# Ban after 5 failed attempts
+maxretry = 5
+
+# Use systemd journal cause on Debian 12
+backend = systemd
+
+[sshd]
+enabled = true
+EOF
 
 systemctl enable fail2ban
 systemctl restart fail2ban
 
-echo "[8/9] Setting hostname and timezone..."
-#config hostnames
-hostnamectl set-hostname "$HOSTNAME"
+fail2ban-client -t
 
-#config timezones
+echo "[8/9] Setting hostname and timezone..."
+hostnamectl set-hostname "$HOSTNAME"
 timedatectl set-timezone "$TIMEZONE"
 
 
